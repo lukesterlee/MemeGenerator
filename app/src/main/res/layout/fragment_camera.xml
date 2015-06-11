@@ -1,0 +1,63 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+
+        <SurfaceView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/surfaceView_camera"/>
+
+
+
+        <com.getbase.floatingactionbutton.FloatingActionButton
+            android:id="@+id/button_floating"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Gallery"
+            android:id="@+id/button_gallery"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentStart="true" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="switch"
+            android:id="@+id/button_switch"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="flash"
+            android:id="@+id/button_flash"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="setting"
+            android:id="@+id/button_setting"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentEnd="true" />
+
+
+    </RelativeLayout>
+
+
+
+</FrameLayout>
