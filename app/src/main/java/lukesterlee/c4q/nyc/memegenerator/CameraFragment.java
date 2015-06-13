@@ -12,6 +12,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.getbase.floatingactionbutton.FloatingActionButton;
@@ -36,6 +37,8 @@ public class CameraFragment extends Fragment {
     private Button mButtonFlash;
     private Button mButtonSetting;
 
+    private ProgressBar mProgressBar;
+
     private int currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
 
     private boolean isPreview = false;
@@ -43,14 +46,40 @@ public class CameraFragment extends Fragment {
     static final int REQUEST_CODE_TAKE_PHOTO = 1;
     static final int REQUEST_CODE_IMAGE_GET = 2;
 
+    private Camera.ShutterCallback mShutterCallback = new Camera.ShutterCallback() {
+        @Override
+        public void onShutter() {
+            mProgressBar.setVisibility(View.VISIBLE);
+        }
+    };
+
+    private Camera.PictureCallback mJpegCallback = new Camera.PictureCallback() {
+        @Override
+        public void onPictureTaken(byte[] data, Camera camera) {
+            String filename;
+
+        }
+    };
+
+
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
         View result = inflater.inflate(R.layout.fragment_camera, container, false);
 
+        mProgressBar = (ProgressBar) result.findViewById(R.id.progressBar);
+        mProgressBar.setVisibility(View.INVISIBLE);
 
         mButtonTakePicture = (FloatingActionButton) result.findViewById(R.id.button_floating);
+        mButtonTakePicture.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mCamera != null) {
+                    mCamera.takePicture(mShutterCallback, null, mJpegCallback);
+                }
+            }
+        });
 
         mButtonSwitch = (Button) result.findViewById(R.id.button_switch);
         if(mCamera.getNumberOfCameras() == 1){
