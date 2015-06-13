@@ -1,9 +1,11 @@
 package lukesterlee.c4q.nyc.memegenerator;
 
 import android.app.Fragment;
+import android.content.Context;
 import android.content.Intent;
 import android.hardware.Camera;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -17,7 +19,10 @@ import android.widget.Toast;
 
 import com.getbase.floatingactionbutton.FloatingActionButton;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -43,8 +48,12 @@ public class CameraFragment extends Fragment {
 
     private boolean isPreview = false;
 
-    static final int REQUEST_CODE_TAKE_PHOTO = 1;
-    static final int REQUEST_CODE_IMAGE_GET = 2;
+    private static final String FILENAME_DATE_FORMAT = "yyyy-MM-dd_HH.mm.ss";
+    private static final String FILENAME_SUFFIX = ".jpg";
+    private static final String DIRECTORY_MEME = "meme_generator";
+
+    private static final int REQUEST_CODE_TAKE_PHOTO = 1;
+    private static final int REQUEST_CODE_IMAGE_GET = 2;
 
     private Camera.ShutterCallback mShutterCallback = new Camera.ShutterCallback() {
         @Override
@@ -56,7 +65,34 @@ public class CameraFragment extends Fragment {
     private Camera.PictureCallback mJpegCallback = new Camera.PictureCallback() {
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
-            String filename;
+
+            String date = new SimpleDateFormat(FILENAME_DATE_FORMAT).format(new Date());
+            String filename = date + FILENAME_SUFFIX;
+
+            FileOutputStream os = null;
+            boolean success = true;
+
+            try {
+                os = getActivity().openFileOutput(filename, Context.MODE_PRIVATE);
+                os.write(data);
+            } catch (Exception e) {
+                Log.e(TAG, "Error writing to file " + filename, e);
+                success = false;
+            } finally {
+                try {
+                    if (os != null)
+                        os.close();
+
+                } catch (Exception e) {
+                    Log.e(TAG, "Error closing file " + filename, e);
+                    success = false;
+                }
+            }
+
+            if (success) {
+                Toast.makeText(getActivity().getApplicationContext(), "Saved!", Toast.LENGTH_SHORT);
+            }
+            getActivity().finish();
 
         }
     };
@@ -97,12 +133,7 @@ public class CameraFragment extends Fragment {
             }
         });
 
-        mButtonTakePicture.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Toast.makeText(getActivity().getApplicationContext(), "hello!", Toast.LENGTH_SHORT);
-            }
-        });
+
 
         mSurfaceView = (SurfaceView) result.findViewById(R.id.surfaceView_camera);
         holder = mSurfaceView.getHolder();
@@ -188,6 +219,7 @@ public class CameraFragment extends Fragment {
     public void onResume() {
         super.onResume();
         mCamera = Camera.open(currentCameraId);
+
     }
 
     @Override
@@ -221,4 +253,6 @@ public class CameraFragment extends Fragment {
         }
 
     }
+
+
 }
