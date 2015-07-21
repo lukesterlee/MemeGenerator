@@ -9,15 +9,15 @@
         android:layout_height="match_parent">
 
 
-        <SurfaceView
+        <lukesterlee.c4q.nyc.memegenerator.AutoFitTextureView
+            android:id="@+id/textureView_preview"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:id="@+id/surfaceView_camera"/>
+            android:layout_height="match_parent" />
 
 
 
         <com.getbase.floatingactionbutton.FloatingActionButton
-            android:id="@+id/button_floating"
+            android:id="@+id/button_take_picture"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"

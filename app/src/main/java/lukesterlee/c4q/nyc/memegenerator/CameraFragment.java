@@ -4,9 +4,7 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Camera;
-import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
-import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -33,7 +31,7 @@ public class CameraFragment extends Fragment {
 
 
     private Camera mCamera;
-    private SurfaceView mSurfaceView;
+    private AutoFitTextureView mTextureView;
     private SurfaceHolder holder;
     private FloatingActionButton mButtonTakePicture;
 
@@ -135,8 +133,8 @@ public class CameraFragment extends Fragment {
 
 
 
-        mSurfaceView = (SurfaceView) result.findViewById(R.id.surfaceView_camera);
-        holder = mSurfaceView.getHolder();
+        mTextureView = (AutoFitTextureView) result.findViewById(R.id.textureView_preview);
+        holder = mTextureView;
 
         holder.addCallback(new SurfaceHolder.Callback() {
             @Override
