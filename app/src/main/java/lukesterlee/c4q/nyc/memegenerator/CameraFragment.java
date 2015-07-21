@@ -4,6 +4,7 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Camera;
+import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.annotation.Nullable;
@@ -25,12 +26,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-/**
- * Created by Luke on 6/11/2015.
- */
 public class CameraFragment extends Fragment {
 
     private static final String TAG = "CameraFragment";
+
+
 
     private Camera mCamera;
     private SurfaceView mSurfaceView;

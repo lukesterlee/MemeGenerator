@@ -1,25 +1,30 @@
 package lukesterlee.c4q.nyc.memegenerator;
 
 import android.content.Context;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.ViewGroup;
 
-/**
- * Created by Luke on 6/13/2015.
- */
-public class CameraPreview extends ViewGroup implements SurfaceHolder.Callback {
+public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback {
 
-    SurfaceView mSurfaceView;
-    SurfaceHolder mSurfaceHolder;
+    private SurfaceHolder mHolder;
+    private CameraDevice mCamera;
+    private CameraManager mManager;
 
-    public CameraPreview(Context context) {
+    public CameraPreview(Context context, CameraDevice mCamera) {
         super(context);
+        this.mCamera = mCamera;
+
+        mHolder = getHolder();
+        mHolder.addCallback(this);
+        mManager.
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-
+        mManager.
     }
 
     @Override
