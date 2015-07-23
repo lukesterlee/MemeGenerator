@@ -3,8 +3,12 @@ package lukesterlee.c4q.nyc.memegenerator;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Camera;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.Size;
@@ -20,6 +24,7 @@ import android.widget.Toast;
 
 import com.getbase.floatingactionbutton.FloatingActionButton;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -33,17 +38,16 @@ public class CameraFragment extends Fragment {
 
     private static final String TAG = "CameraFragment";
 
-
-    private SurfaceView mSurfaceView;
     private SurfaceHolder mHolder;
-    private FloatingActionButton mButtonTakePicture;
 
     private Button mButtonGallery;
+
+    @Bind(R.id.surfaceView_preview) SurfaceView mSurfaceView;
     @Bind(R.id.button_switch) ImageButton mButtonSwitch;
     @Bind(R.id.button_flash) ImageButton mButtonFlash;
-    private Button mButtonSetting;
+    @Bind(R.id.button_setting) Button mButtonSetting;
+    @Bind(R.id.progressBar) ProgressBar mProgressBar;
 
-    private ProgressBar mProgressBar;
 
     private Camera mCamera;
     private int currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
@@ -63,7 +67,6 @@ public class CameraFragment extends Fragment {
     private Camera.ShutterCallback mShutterCallback = new Camera.ShutterCallback() {
         @Override
         public void onShutter() {
-
             mProgressBar.setVisibility(View.VISIBLE);
         }
     };
@@ -71,70 +74,34 @@ public class CameraFragment extends Fragment {
     private Camera.PictureCallback mJpegCallback = new Camera.PictureCallback() {
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
-            String date = new SimpleDateFormat(FILENAME_DATE_FORMAT).format(new Date());
-            String filename = date + FILENAME_SUFFIX;
-            FileOutputStream os = null;
-            boolean success = true;
 
-            try {
-                os = getActivity().openFileOutput(filename, Context.MODE_PRIVATE);
-                os.write(data);
-            } catch (Exception e) {
-                Log.e(TAG, "Error writing to file " + filename, e);
-                success = false;
-            } finally {
-                try {
-                    if (os != null)
-                        os.close();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error closing file " + filename, e);
-                    success = false;
-                }
-            }
-            if (success) {
-                Toast.makeText(getActivity().getApplicationContext(), "Saved!", Toast.LENGTH_SHORT).show();
-            }
-            getActivity().finish();
+            Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+            String path = MediaStore.Images.Media.insertImage(getActivity().getContentResolver(), bitmap, null, null);
+            Uri uri = Uri.parse(path);
+
+//            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+//            bitmap.compress(Bitmap.CompressFormat.JPEG, 50, stream);
+//            data = stream.toByteArray();
+            mProgressBar.setVisibility(View.INVISIBLE);
+            Intent intent = new Intent(getActivity(), EditorActivity.class);
+            intent.putExtra(Constant.EXTRA_PICTURE_URI_PARCELABLE, uri);
+            startActivity(intent);
+
+
         }
     };
 
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-
         View result = inflater.inflate(R.layout.fragment_camera, container, false);
-
-        mProgressBar = (ProgressBar) result.findViewById(R.id.progressBar);
-        mButtonTakePicture = (FloatingActionButton) result.findViewById(R.id.button_take_picture);
-        mButtonGallery = (Button) result.findViewById(R.id.button_gallery);
-        mSurfaceView = (SurfaceView) result.findViewById(R.id.surfaceView_preview);
 
         ButterKnife.bind(this, result);
 
+        if(mCamera.getNumberOfCameras() == 1){
+            mButtonSwitch.setVisibility(View.INVISIBLE);
+        }
 
-
-        mProgressBar.setVisibility(View.INVISIBLE);
-        mButtonTakePicture.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (mCamera != null) {
-                    mCamera.takePicture(mShutterCallback, null, mJpegCallback);
-                }
-            }
-        });
-
-
-//        if(mCamera.getNumberOfCameras() == 1){
-//            mButtonSwitch.setVisibility(View.INVISIBLE);
-//        }
-
-
-        mButtonGallery.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                selectPhoto(v);
-            }
-        });
 
         mHolder = mSurfaceView.getHolder();
 
@@ -154,21 +121,27 @@ public class CameraFragment extends Fragment {
                 if (mCamera == null)
                     return;
 
+
                 mCameraInfo = new Camera.CameraInfo();
+                Camera.getCameraInfo(currentCameraId, mCameraInfo);
+                mParameter = mCamera.getParameters();
+
                 if (currentCameraId == Camera.CameraInfo.CAMERA_FACING_FRONT) {
                     mCamera.setDisplayOrientation(270);
+                    mParameter.setRotation(90);
 
                 } else {
+                    mParameter.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
                     mCamera.setDisplayOrientation(90);
+                    mParameter.setRotation(90);
                 }
 
-                Camera.Parameters parameters = mCamera.getParameters();
-                parameters.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
-                Camera.Size s = parameters.getSupportedPreviewSizes().get(0);
-                parameters.setPreviewSize(s.width, s.height);
-                mCamera.setParameters(parameters);
-                mCamera.enableShutterSound(true);
 
+                Camera.Size s = mParameter.getSupportedPreviewSizes().get(1);
+                mParameter.setPreviewSize(s.width, s.height);
+
+                mCamera.setParameters(mParameter);
+                mCamera.enableShutterSound(true);
 
                 try {
                     mCamera.startPreview();
@@ -189,7 +162,6 @@ public class CameraFragment extends Fragment {
                 }
             }
         });
-
         return result;
     }
 
@@ -258,14 +230,18 @@ public class CameraFragment extends Fragment {
         }
         mCamera = Camera.open(currentCameraId);
 
+        mParameter = mCamera.getParameters();
 
         try {
             //this step is critical or preview on new camera will no know where to render to
             if (currentCameraId == Camera.CameraInfo.CAMERA_FACING_FRONT) {
                 mCamera.setDisplayOrientation(270);
+                mParameter.setRotation(90);
             } else {
                 mCamera.setDisplayOrientation(90);
+                mParameter.setRotation(90);
             }
+            mCamera.setParameters(mParameter);
             mCamera.setPreviewDisplay(mHolder);
         } catch (IOException e) {
             e.printStackTrace();
@@ -277,5 +253,12 @@ public class CameraFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         ButterKnife.unbind(this);
+    }
+
+    @OnClick(R.id.button_take_picture)
+    public void takePicture() {
+        if (mCamera != null) {
+            mCamera.takePicture(mShutterCallback, null, mJpegCallback);
+        }
     }
 }
