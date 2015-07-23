@@ -1,5 +1,6 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -9,8 +10,8 @@
         android:layout_height="match_parent">
 
 
-        <lukesterlee.c4q.nyc.memegenerator.AutoFitTextureView
-            android:id="@+id/textureView_preview"
+        <SurfaceView
+            android:id="@+id/surfaceView_preview"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
@@ -23,29 +24,30 @@
             android:layout_alignParentBottom="true"
             android:layout_centerHorizontal="true" />
 
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Gallery"
+        <ImageButton
+            android:layout_width="50dp"
+            android:layout_height="50dp"
             android:id="@+id/button_gallery"
             android:layout_alignParentBottom="true"
             android:layout_alignParentStart="true" />
 
-        <Button
+        <ImageButton
+            android:layout_margin="10dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="switch"
             android:id="@+id/button_switch"
             android:layout_alignParentTop="true"
-            android:layout_alignParentEnd="true" />
+            android:layout_alignParentEnd="true"
+            android:background="@drawable/ic_camera_rear_white_48dp" />
 
-        <Button
+        <ImageButton
+            android:layout_margin="10dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="flash"
             android:id="@+id/button_flash"
             android:layout_alignParentTop="true"
-            android:layout_alignParentStart="true" />
+            android:layout_alignParentStart="true"
+            android:background="@drawable/ic_flash_auto_white_48dp" />
 
         <Button
             android:layout_width="wrap_content"

@@ -7,12 +7,14 @@ import android.hardware.Camera;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -22,27 +24,32 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
+
+import butterknife.Bind;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
 
 public class CameraFragment extends Fragment {
 
     private static final String TAG = "CameraFragment";
 
 
-
-    private Camera mCamera;
-    private AutoFitTextureView mTextureView;
-    private SurfaceHolder holder;
+    private SurfaceView mSurfaceView;
+    private SurfaceHolder mHolder;
     private FloatingActionButton mButtonTakePicture;
 
     private Button mButtonGallery;
-    private Button mButtonSwitch;
-    private Button mButtonFlash;
+    @Bind(R.id.button_switch) ImageButton mButtonSwitch;
+    @Bind(R.id.button_flash) ImageButton mButtonFlash;
     private Button mButtonSetting;
 
     private ProgressBar mProgressBar;
 
-    private int currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+    private Camera mCamera;
+    private int currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+    private Camera.CameraInfo mCameraInfo;
+    private int mCameraCount;
+    private Camera.Parameters mParameter;
 
     private boolean isPreview = false;
 
@@ -56,6 +63,7 @@ public class CameraFragment extends Fragment {
     private Camera.ShutterCallback mShutterCallback = new Camera.ShutterCallback() {
         @Override
         public void onShutter() {
+
             mProgressBar.setVisibility(View.VISIBLE);
         }
     };
@@ -63,10 +71,8 @@ public class CameraFragment extends Fragment {
     private Camera.PictureCallback mJpegCallback = new Camera.PictureCallback() {
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
-
             String date = new SimpleDateFormat(FILENAME_DATE_FORMAT).format(new Date());
             String filename = date + FILENAME_SUFFIX;
-
             FileOutputStream os = null;
             boolean success = true;
 
@@ -80,21 +86,17 @@ public class CameraFragment extends Fragment {
                 try {
                     if (os != null)
                         os.close();
-
                 } catch (Exception e) {
                     Log.e(TAG, "Error closing file " + filename, e);
                     success = false;
                 }
             }
-
             if (success) {
-                Toast.makeText(getActivity().getApplicationContext(), "Saved!", Toast.LENGTH_SHORT);
+                Toast.makeText(getActivity().getApplicationContext(), "Saved!", Toast.LENGTH_SHORT).show();
             }
             getActivity().finish();
-
         }
     };
-
 
     @Nullable
     @Override
@@ -103,9 +105,15 @@ public class CameraFragment extends Fragment {
         View result = inflater.inflate(R.layout.fragment_camera, container, false);
 
         mProgressBar = (ProgressBar) result.findViewById(R.id.progressBar);
-        mProgressBar.setVisibility(View.INVISIBLE);
+        mButtonTakePicture = (FloatingActionButton) result.findViewById(R.id.button_take_picture);
+        mButtonGallery = (Button) result.findViewById(R.id.button_gallery);
+        mSurfaceView = (SurfaceView) result.findViewById(R.id.surfaceView_preview);
 
-        mButtonTakePicture = (FloatingActionButton) result.findViewById(R.id.button_floating);
+        ButterKnife.bind(this, result);
+
+
+
+        mProgressBar.setVisibility(View.INVISIBLE);
         mButtonTakePicture.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -115,15 +123,12 @@ public class CameraFragment extends Fragment {
             }
         });
 
-        mButtonSwitch = (Button) result.findViewById(R.id.button_switch);
-        if(mCamera.getNumberOfCameras() == 1){
-            mButtonSwitch.setVisibility(View.INVISIBLE);
-        }
+
+//        if(mCamera.getNumberOfCameras() == 1){
+//            mButtonSwitch.setVisibility(View.INVISIBLE);
+//        }
 
 
-
-
-        mButtonGallery = (Button) result.findViewById(R.id.button_gallery);
         mButtonGallery.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -131,12 +136,9 @@ public class CameraFragment extends Fragment {
             }
         });
 
+        mHolder = mSurfaceView.getHolder();
 
-
-        mTextureView = (AutoFitTextureView) result.findViewById(R.id.textureView_preview);
-        holder = mTextureView;
-
-        holder.addCallback(new SurfaceHolder.Callback() {
+        mHolder.addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
                 try {
@@ -147,16 +149,27 @@ public class CameraFragment extends Fragment {
                     Log.e(TAG, "Error setting up preview display", exception);
                 }
             }
-
             @Override
             public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
                 if (mCamera == null)
                     return;
 
+                mCameraInfo = new Camera.CameraInfo();
+                if (currentCameraId == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                    mCamera.setDisplayOrientation(270);
+
+                } else {
+                    mCamera.setDisplayOrientation(90);
+                }
+
                 Camera.Parameters parameters = mCamera.getParameters();
-                Camera.Size s = getBestSupportedSize(parameters.getSupportedPreviewSizes(), width, height);
+                parameters.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
+                Camera.Size s = parameters.getSupportedPreviewSizes().get(0);
                 parameters.setPreviewSize(s.width, s.height);
                 mCamera.setParameters(parameters);
+                mCamera.enableShutterSound(true);
+
+
                 try {
                     mCamera.startPreview();
                     isPreview = true;
@@ -177,39 +190,6 @@ public class CameraFragment extends Fragment {
             }
         });
 
-
-        mButtonSwitch.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (isPreview) {
-                    mCamera.stopPreview();
-                }
-
-                mCamera.release();
-
-                //swap the id of the camera to be used
-                switch (currentCameraId) {
-                    case Camera.CameraInfo.CAMERA_FACING_BACK:
-                        currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
-                        break;
-                    case Camera.CameraInfo.CAMERA_FACING_FRONT:
-                        currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
-                        break;
-                }
-
-                mCamera = Camera.open(currentCameraId);
-
-                try {
-                    //this step is critical or preview on new camera will no know where to render to
-                    mCamera.setPreviewDisplay(holder);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                mCamera.startPreview();
-            }
-        });
-
-
         return result;
     }
 
@@ -217,7 +197,6 @@ public class CameraFragment extends Fragment {
     public void onResume() {
         super.onResume();
         mCamera = Camera.open(currentCameraId);
-
     }
 
     @Override
@@ -229,28 +208,74 @@ public class CameraFragment extends Fragment {
         }
     }
 
-    private Camera.Size getBestSupportedSize(List<Camera.Size> sizes, int width, int height) {
-        Camera.Size bestSize = sizes.get(0);
-        int largestArea = bestSize.width * bestSize.height;
-
-        for (Camera.Size size : sizes) {
-            int area = size.width * size.height;
-            if (area > largestArea) {
-                bestSize = size;
-                largestArea = area;
-            }
-        }
-        return bestSize;
-    }
-
     private void selectPhoto(View v) {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("image/*");
         if (intent.resolveActivity(getActivity().getPackageManager()) != null) {
             startActivityForResult(intent, REQUEST_CODE_IMAGE_GET);
         }
-
     }
 
+    @OnClick(R.id.button_flash)
+    public void switchFlash() {
+        mParameter = mCamera.getParameters();
+        String mode = mParameter.getFlashMode();
+        if (mode == null) {
+            Toast.makeText(getActivity(), "Front camera doesn't have flash", Toast.LENGTH_SHORT).show();
+        } else if (mode.equals(Camera.Parameters.FLASH_MODE_AUTO)) {
+            mButtonFlash.setBackgroundResource(R.drawable.ic_flash_on_white_48dp);
+            mParameter.setFlashMode(Camera.Parameters.FLASH_MODE_ON);
+            mCamera.setParameters(mParameter);
+        } else if (mode.equals(Camera.Parameters.FLASH_MODE_OFF)) {
+            mButtonFlash.setBackgroundResource(R.drawable.ic_flash_auto_white_48dp);
+            mParameter.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
+        } else if (mode.equals(Camera.Parameters.FLASH_MODE_ON)) {
+            mButtonFlash.setBackgroundResource(R.drawable.ic_flash_off_white_48dp);
+            mParameter.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+        }
+        mCamera.setParameters(mParameter);
+        mCamera.startPreview();
+    }
 
+    @OnClick(R.id.button_switch)
+    public void switchCamera() {
+        if (isPreview) {
+            mCamera.stopPreview();
+        }
+        mCamera.release();
+        //swap the id of the camera to be used
+        switch (currentCameraId) {
+            case Camera.CameraInfo.CAMERA_FACING_BACK:
+                mButtonFlash.setVisibility(View.INVISIBLE);
+                mButtonSwitch.setBackgroundResource(R.drawable.ic_camera_front_white_48dp);
+                currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+                break;
+            case Camera.CameraInfo.CAMERA_FACING_FRONT:
+                mButtonFlash.setVisibility(View.VISIBLE);
+                mButtonSwitch.setBackgroundResource(R.drawable.ic_camera_rear_white_48dp);
+                currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+                break;
+        }
+        mCamera = Camera.open(currentCameraId);
+
+
+        try {
+            //this step is critical or preview on new camera will no know where to render to
+            if (currentCameraId == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                mCamera.setDisplayOrientation(270);
+            } else {
+                mCamera.setDisplayOrientation(90);
+            }
+            mCamera.setPreviewDisplay(mHolder);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        mCamera.startPreview();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        ButterKnife.unbind(this);
+    }
 }
