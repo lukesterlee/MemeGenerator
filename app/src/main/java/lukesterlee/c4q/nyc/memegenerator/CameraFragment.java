@@ -3,10 +3,12 @@ package lukesterlee.c4q.nyc.memegenerator;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.hardware.Camera;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.annotation.Nullable;
@@ -19,10 +21,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.getbase.floatingactionbutton.FloatingActionButton;
+import com.squareup.picasso.Picasso;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
@@ -40,13 +44,12 @@ public class CameraFragment extends Fragment {
 
     private SurfaceHolder mHolder;
 
-    private Button mButtonGallery;
-
     @Bind(R.id.surfaceView_preview) SurfaceView mSurfaceView;
     @Bind(R.id.button_switch) ImageButton mButtonSwitch;
     @Bind(R.id.button_flash) ImageButton mButtonFlash;
     @Bind(R.id.button_setting) Button mButtonSetting;
     @Bind(R.id.progressBar) ProgressBar mProgressBar;
+    @Bind(R.id.button_gallery) ImageView mButtonGallery;
 
 
     private Camera mCamera;
@@ -102,6 +105,7 @@ public class CameraFragment extends Fragment {
             mButtonSwitch.setVisibility(View.INVISIBLE);
         }
 
+        new GalleryTask().execute();
 
         mHolder = mSurfaceView.getHolder();
 
@@ -259,6 +263,26 @@ public class CameraFragment extends Fragment {
     public void takePicture() {
         if (mCamera != null) {
             mCamera.takePicture(mShutterCallback, null, mJpegCallback);
+        }
+    }
+
+    private class GalleryTask extends AsyncTask<Void, Void, String> {
+        @Override
+        protected String doInBackground(Void... voids) {
+            String[] projection = new String[]{
+                    MediaStore.Images.ImageColumns._ID,
+                    MediaStore.Images.ImageColumns.DATA,
+                    MediaStore.Images.ImageColumns.DATE_TAKEN
+            };
+            Cursor cursor = getActivity().getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, projection, null, null, MediaStore.Images.ImageColumns.DATE_TAKEN + " DESC LIMIT 1");
+            cursor.moveToFirst();
+            return cursor.getString(1);
+
+        }
+
+        @Override
+        protected void onPostExecute(String path) {
+            Picasso.with(getActivity()).load(path).resize(200,200).into(mButtonGallery);
         }
     }
 }
