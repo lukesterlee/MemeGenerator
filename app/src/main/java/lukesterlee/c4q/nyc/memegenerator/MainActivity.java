@@ -40,9 +40,7 @@ public class MainActivity extends Activity {
         if (requestCode == REQUEST_CODE_IMAGE_GET && resultCode == RESULT_OK) {
 
             Uri fullPhotoUri = data.getData();
-            getFragmentManager().beginTransaction()
-                    .replace(R.id.container, new EditorFragment())
-                    .commit();
+
 //            Intent ramona = new Intent(getApplicationContext(), EditorActivity.class);
 //            ramona.putExtra("uri", fullPhotoUri);
 //            startActivity(ramona);

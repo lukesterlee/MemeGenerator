@@ -3,10 +3,11 @@
     android:orientation="vertical" android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="I'm fucking editor~~~"
-        android:id="@+id/textView"
-        android:layout_gravity="center_horizontal" />
+    <GridView
+        android:id="@+id/gridView_gallery"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+    </GridView>
+
 </LinearLayout>

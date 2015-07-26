@@ -3,46 +3,64 @@ package lukesterlee.c4q.nyc.memegenerator;
 import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
+import android.database.ContentObserver;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Camera;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.getbase.floatingactionbutton.FloatingActionButton;
+import com.squareup.picasso.Picasso;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+import butterknife.Bind;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
+
 public class CameraFragment extends Fragment {
 
     private static final String TAG = "CameraFragment";
 
+    private SurfaceHolder mHolder;
+
+    @Bind(R.id.surfaceView_preview) SurfaceView mSurfaceView;
+    @Bind(R.id.button_switch) ImageButton mButtonSwitch;
+    @Bind(R.id.button_flash) ImageButton mButtonFlash;
+    @Bind(R.id.button_setting) Button mButtonSetting;
+    @Bind(R.id.progressBar) ProgressBar mProgressBar;
+    @Bind(R.id.button_gallery) ImageView mButtonGallery;
 
 
     private Camera mCamera;
-    private AutoFitTextureView mTextureView;
-    private SurfaceHolder holder;
-    private FloatingActionButton mButtonTakePicture;
-
-    private Button mButtonGallery;
-    private Button mButtonSwitch;
-    private Button mButtonFlash;
-    private Button mButtonSetting;
-
-    private ProgressBar mProgressBar;
-
-    private int currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+    private int currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+    private Camera.CameraInfo mCameraInfo;
+    private int mCameraCount;
+    private Camera.Parameters mParameter;
 
     private boolean isPreview = false;
 
@@ -64,79 +82,35 @@ public class CameraFragment extends Fragment {
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
 
-            String date = new SimpleDateFormat(FILENAME_DATE_FORMAT).format(new Date());
-            String filename = date + FILENAME_SUFFIX;
+            Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
+            String path = MediaStore.Images.Media.insertImage(getActivity().getContentResolver(), bitmap, null, null);
+            Uri uri = Uri.parse(path);
 
-            FileOutputStream os = null;
-            boolean success = true;
-
-            try {
-                os = getActivity().openFileOutput(filename, Context.MODE_PRIVATE);
-                os.write(data);
-            } catch (Exception e) {
-                Log.e(TAG, "Error writing to file " + filename, e);
-                success = false;
-            } finally {
-                try {
-                    if (os != null)
-                        os.close();
-
-                } catch (Exception e) {
-                    Log.e(TAG, "Error closing file " + filename, e);
-                    success = false;
-                }
-            }
-
-            if (success) {
-                Toast.makeText(getActivity().getApplicationContext(), "Saved!", Toast.LENGTH_SHORT);
-            }
-            getActivity().finish();
+//            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+//            bitmap.compress(Bitmap.CompressFormat.JPEG, 50, stream);
+//            data = stream.toByteArray();
+            mProgressBar.setVisibility(View.INVISIBLE);
+            Intent intent = new Intent(getActivity(), EditorActivity.class);
+            intent.putExtra(Constant.EXTRA_PICTURE_URI_PARCELABLE, uri);
+            startActivity(intent);
 
         }
     };
 
-
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-
         View result = inflater.inflate(R.layout.fragment_camera, container, false);
 
-        mProgressBar = (ProgressBar) result.findViewById(R.id.progressBar);
-        mProgressBar.setVisibility(View.INVISIBLE);
+        ButterKnife.bind(this, result);
 
-        mButtonTakePicture = (FloatingActionButton) result.findViewById(R.id.button_floating);
-        mButtonTakePicture.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (mCamera != null) {
-                    mCamera.takePicture(mShutterCallback, null, mJpegCallback);
-                }
-            }
-        });
-
-        mButtonSwitch = (Button) result.findViewById(R.id.button_switch);
         if(mCamera.getNumberOfCameras() == 1){
             mButtonSwitch.setVisibility(View.INVISIBLE);
         }
 
+        mHolder = mSurfaceView.getHolder();
 
-
-
-        mButtonGallery = (Button) result.findViewById(R.id.button_gallery);
-        mButtonGallery.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                selectPhoto(v);
-            }
-        });
-
-
-
-        mTextureView = (AutoFitTextureView) result.findViewById(R.id.textureView_preview);
-        holder = mTextureView;
-
-        holder.addCallback(new SurfaceHolder.Callback() {
+        mHolder.addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
                 try {
@@ -147,16 +121,31 @@ public class CameraFragment extends Fragment {
                     Log.e(TAG, "Error setting up preview display", exception);
                 }
             }
-
             @Override
             public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
                 if (mCamera == null)
                     return;
 
-                Camera.Parameters parameters = mCamera.getParameters();
-                Camera.Size s = getBestSupportedSize(parameters.getSupportedPreviewSizes(), width, height);
-                parameters.setPreviewSize(s.width, s.height);
-                mCamera.setParameters(parameters);
+                mCameraInfo = new Camera.CameraInfo();
+                Camera.getCameraInfo(currentCameraId, mCameraInfo);
+                mParameter = mCamera.getParameters();
+
+                if (currentCameraId == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                    mCamera.setDisplayOrientation(270);
+                    mParameter.setRotation(90);
+
+                } else {
+                    mParameter.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
+                    mCamera.setDisplayOrientation(90);
+                    mParameter.setRotation(90);
+                }
+
+                Camera.Size s = mParameter.getSupportedPreviewSizes().get(1);
+                mParameter.setPreviewSize(s.width, s.height);
+
+                mCamera.setParameters(mParameter);
+                mCamera.enableShutterSound(true);
+
                 try {
                     mCamera.startPreview();
                     isPreview = true;
@@ -172,75 +161,52 @@ public class CameraFragment extends Fragment {
             public void surfaceDestroyed(SurfaceHolder holder) {
                 if (mCamera != null) {
                     mCamera.stopPreview();
+                    // mCamera.release()?
                     isPreview = false;
                 }
             }
         });
+        return result;
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        new GalleryTask().execute();
 
 
-        mButtonSwitch.setOnClickListener(new View.OnClickListener() {
+        getActivity().getContentResolver().registerContentObserver(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, new ContentObserver(new Handler()) {
             @Override
-            public void onClick(View v) {
-                if (isPreview) {
-                    mCamera.stopPreview();
-                }
+            public void onChange(boolean selfChange) {
+                onChange(selfChange, null);
+            }
 
-                mCamera.release();
-
-                //swap the id of the camera to be used
-                switch (currentCameraId) {
-                    case Camera.CameraInfo.CAMERA_FACING_BACK:
-                        currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
-                        break;
-                    case Camera.CameraInfo.CAMERA_FACING_FRONT:
-                        currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
-                        break;
-                }
-
-                mCamera = Camera.open(currentCameraId);
-
-                try {
-                    //this step is critical or preview on new camera will no know where to render to
-                    mCamera.setPreviewDisplay(holder);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                mCamera.startPreview();
+            @Override
+            public void onChange(boolean selfChange, Uri uri) {
+                Log.i("ciao", "notifyChange: " + uri);
+                super.onChange(selfChange, uri);
             }
         });
-
-
-        return result;
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        if(null==mCamera)
         mCamera = Camera.open(currentCameraId);
-
+        else
+            mCamera.startPreview();
     }
 
     @Override
     public void onPause() {
         super.onPause();
         if (mCamera != null) {
+            mCamera.stopPreview();
             mCamera.release();
             mCamera = null;
-        }
-    }
 
-    private Camera.Size getBestSupportedSize(List<Camera.Size> sizes, int width, int height) {
-        Camera.Size bestSize = sizes.get(0);
-        int largestArea = bestSize.width * bestSize.height;
-
-        for (Camera.Size size : sizes) {
-            int area = size.width * size.height;
-            if (area > largestArea) {
-                bestSize = size;
-                largestArea = area;
-            }
         }
-        return bestSize;
     }
 
     private void selectPhoto(View v) {
@@ -249,8 +215,139 @@ public class CameraFragment extends Fragment {
         if (intent.resolveActivity(getActivity().getPackageManager()) != null) {
             startActivityForResult(intent, REQUEST_CODE_IMAGE_GET);
         }
-
     }
 
+    @OnClick(R.id.button_flash)
+    public void switchFlash() {
+        if (isPreview) {
+            mCamera.stopPreview();
+        }
+        mCamera.release();
 
+        mParameter = mCamera.getParameters();
+        String mode = mParameter.getFlashMode();
+        if (mode == null) {
+            Toast.makeText(getActivity(), "Front camera doesn't have flash", Toast.LENGTH_SHORT).show();
+        } else if (mode.equals(Camera.Parameters.FLASH_MODE_AUTO)) {
+            mButtonFlash.setBackgroundResource(R.drawable.ic_flash_on_white_48dp);
+            mParameter.setFlashMode(Camera.Parameters.FLASH_MODE_ON);
+            mCamera.setParameters(mParameter);
+        } else if (mode.equals(Camera.Parameters.FLASH_MODE_OFF)) {
+            mButtonFlash.setBackgroundResource(R.drawable.ic_flash_auto_white_48dp);
+            mParameter.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
+        } else if (mode.equals(Camera.Parameters.FLASH_MODE_ON)) {
+            mButtonFlash.setBackgroundResource(R.drawable.ic_flash_off_white_48dp);
+            mParameter.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+        }
+        mCamera.setParameters(mParameter);
+        mCamera.startPreview();
+        isPreview = true;
+    }
+
+    @OnClick(R.id.button_switch)
+    public void switchCamera() {
+        if (isPreview) {
+            mCamera.stopPreview();
+        }
+        mCamera.release();
+        //swap the id of the camera to be used
+        switch (currentCameraId) {
+            case Camera.CameraInfo.CAMERA_FACING_BACK:
+                mButtonFlash.setVisibility(View.INVISIBLE);
+                mButtonSwitch.setBackgroundResource(R.drawable.ic_camera_front_white_48dp);
+                currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+                break;
+            case Camera.CameraInfo.CAMERA_FACING_FRONT:
+                mButtonFlash.setVisibility(View.VISIBLE);
+                mButtonSwitch.setBackgroundResource(R.drawable.ic_camera_rear_white_48dp);
+                currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+                break;
+        }
+        mCamera = Camera.open(currentCameraId);
+
+        mParameter = mCamera.getParameters();
+
+        try {
+            //this step is critical or preview on new camera will no know where to render to
+            if (currentCameraId == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                mCamera.setDisplayOrientation(270);
+                mParameter.setRotation(90);
+            } else {
+                mCamera.setDisplayOrientation(90);
+                mParameter.setRotation(90);
+            }
+            mCamera.setParameters(mParameter);
+            mCamera.setPreviewDisplay(mHolder);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        mCamera.startPreview();
+        isPreview = true;
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        ButterKnife.unbind(this);
+    }
+
+    @OnClick(R.id.button_take_picture)
+    public void takePicture() {
+        if (mCamera != null) {
+            mCamera.takePicture(mShutterCallback, null, mJpegCallback);
+        }
+    }
+
+    private class GalleryTask extends AsyncTask<Void, Void, Long> {
+        @Override
+        protected Long doInBackground(Void... voids) {
+            String[] projection = new String[]{
+                    MediaStore.Images.ImageColumns._ID,
+                    MediaStore.Images.ImageColumns.DATA,
+                    MediaStore.Images.ImageColumns.DATE_TAKEN
+            };
+            Cursor cursor = getActivity().getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, projection, null, null, MediaStore.Images.ImageColumns.DATE_TAKEN + " DESC LIMIT 1");
+            cursor.moveToFirst();
+            return cursor.getLong(0);
+
+        }
+
+        @Override
+        protected void onPostExecute(Long path) {
+            Log.i("he", "id:" + path);
+            final Uri uri = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, path.toString());
+
+            Log.v("he", "uri:" + uri);
+            Log.v("he", "size:" + mButtonGallery.getWidth() + ", " + mButtonGallery.getMeasuredWidth());
+
+            if(mButtonGallery.getWidth() <= 0) {
+                mButtonGallery.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+                        mButtonGallery.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                        Log.v("he", "new size:" + mButtonGallery.getWidth() + ", " + mButtonGallery.getMeasuredWidth());
+
+                        Picasso.with(getActivity())
+                                .load(uri)
+                                .resize(mButtonGallery.getWidth(), mButtonGallery.getHeight())
+                                .centerCrop()
+                                .into(mButtonGallery);
+                    }
+                });
+            } else {
+                Picasso.with(getActivity())
+                        .load(uri)
+                        .resizeDimen(R.dimen.button_camera, R.dimen.button_camera)
+                        .centerCrop()
+                        .into(mButtonGallery);
+            }
+
+
+        }
+    }
+
+//    public Size getBestSupportedSize(List<Size> sizes, int width, int height) {
+//
+//
+//    }
 }
